@@ -25,14 +25,16 @@ function commercegimuemoa_commerce_payment_method_info() {
 //definir  les paramètres par défaut a renvoyer pour le mode de paiement commerceGIMUEMOA
 function commercegimuemoa_default_settings() {
   return array(
+    'siteid' => '',
+    'idmarchand' => '',
     'number_carte' => '',
     'date_expiration' => '',
     'nom_porteur' => '',
     'cvv2' => '',
     'code' => TRUE,
     'card_types' => drupal_map_assoc(array('ecobank', 'bislamique', 'batlantique', 'gim')),
-    // 'payment_action' => 'sale',
     'server' => 'gim',
+    
   );
 }
 
@@ -45,11 +47,15 @@ function commercegimuemoa_settings_form($settings = array()) {
   $form['siteid'] = array(
     '#type' => 'textfield',
     '#title' => t('ID Site'),
+     '#description' => t('Identifiant du site .'),
+    '#default_value' => $settings['siteid'],
     '#required' => TRUE,
   );
   $form['idmarchand'] = array(
     '#type' => 'textfield',
     '#title' => t('ID Marchant'),
+     '#description' => t('Identifiant du marchand.'),
+    '#default_value' => $settings['idmarchand'],
     '#required' => TRUE,
   );
   $options = array('TEST' => 'TEST', 'PRODUCTION' => 'PRODUCTION');
@@ -65,34 +71,15 @@ function commercegimuemoa_settings_form($settings = array()) {
     '#title' => t('GIM server'),
     '#options' => array(
       'gim' => ('GIM-UEMOA '),
-      'paypal' => ('Paypal'),
+     // 'paypal' => ('Paypal'),
     ),
     '#default_value' => $settings['server'],
-  );
-
-
-
-  $form['card_types'] = array(
-    '#type' => 'checkboxes',
-    '#title' => t('Limit accepted credit cards to the following types'),
-    '#description' => t('American Express is not available in the UK. Only MasterCard and Visa are available in Canada. If you enable Maestro or Solo, you must use GBP as your currency code.'),
-    '#options' => array_intersect_key(commercegimuemoa_bank_card_types(), drupal_map_assoc(array('ecobank', 'bislamique', 'batlantique', 'gim'))),
-    '#default_value' => $settings['card_types'],
-    '#required' => TRUE,
   );
   $form['code'] = array(
     '#type' => 'checkbox',
     '#title' => t('Require the card security code (i.e. CVV) to process credit card transactions.'),
     '#description' => t('This should match the similar setting in your PayPal account.'),
     '#default_value' => $settings['code'],
-  );
-
-
-
-  $form['valider'] = array(
-    '#type' => 'submit',
-    '#value' => t('valider'),
-    '#submit' => array('commercegimuemoa_validate', 'commercegimuemoa_submit'),
   );
   return $form;
 }
@@ -137,11 +124,11 @@ function commercegimuemoa_form_commerce_checkout_form_alter(&$form, &$form_state
 // redirection vers la plateforme de paiement
 function commercegimuemoa_redirect_form($form, &$form_state, $order, $payment_method) {
   //verifier la configuration
-//if (empty($payment_method['settings']['sid'])&& empty($payment_method['settings']['idmarchand']) ) {
-////    // Retour une erreur si le module n'était pas configuré .
-// drupal_set_message(t('le moduele n est pas encore configuré.'), 'error');
-//   return array();
-//  }
+if (empty($payment_method['settings']['siteid'])&& empty($payment_method['settings']['idmarchand']) ) {
+//    // Retour une erreur si le module n'était pas configuré .
+ drupal_set_message(t('le moduele n est pas encore configuré.'), 'error');
+   return array();
+  }
   $settings = array(
     // Retourner a la page precedent si le paiement est annulé
     'cancel_return' => url('checkout/' . $order->order_id . '/payment/back/' . $order->data['payment_redirect_key'], array('absolute' => TRUE)),
@@ -158,11 +145,11 @@ function commercegimuemoa_redirect_form($form, &$form_state, $order, $payment_me
 
 function commercegimuemoa_redirect_form_validate($form, &$form_state, $order, $payment_method) {
 
-//  if (!empty($payment_method['settings']['ipn_logging']) &&
-//    $payment_method['settings']['ipn_logging'] == 'full_ipn') {
-//    watchdog('commerce_paypal_wps', 'Customer returned from PayPal with the following POST data:!ipn_data', 
-//	array('!ipn_data' => '<pre>' . check_plain(print_r($_POST, TRUE)) . '</pre>'), WATCHDOG_NOTICE);
-//  }
+  if (!empty($payment_method['settings']['ipn_logging']) &&
+    $payment_method['settings']['ipn_logging'] == 'full_ipn') {
+    watchdog('commerce_paypal_wps', 'Customer returned from PayPal with the following POST data:!ipn_data', 
+	array('!ipn_data' => '<pre>' . check_plain(print_r($_POST, TRUE)) . '</pre>'), WATCHDOG_NOTICE);
+  }
   // This may be an unnecessary step, but if for some reason the user does end
   // up returning at the success URL with a Failed payment, go back.
   if (!empty($_POST['payment_status']) && $_POST['payment_status'] == 'Failed') {
@@ -340,54 +327,7 @@ function commercegimuemoa_ipn_process($order, $payment_method, &$ipn) {
   watchdog('commercegimuemoa', 'IPN processed for Order @order_number with ID @txn_id.', array('@txn_id' => $ipn['txn_id'], '@order_number' => $order->order_number), WATCHDOG_INFO);
 }
 
-function commercegimuemoa_trans_form($form, &$form_state) {
 
-  $form['number_carte'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Numero de la carte'),
-    '#required' => TRUE,
-    '#size' => 40,
-    '#maxlength' => 16,
-    '#size' => 16,
-  );
-  $form['expiration_date'] = array(
-    '#type' => 'date',
-    '#title' => t('Date Expiration'),
-    '#required' => TRUE,
-  );
-  $form['first_lastname'] = array(
-    '#type' => 'textfield',
-    '#size' => 40,
-    '#title' => t('Nom du porteur'),
-    '#required' => TRUE,
-      // '#default_value' => $settings['DIEYE Yacine'],
-  );
-  $form['CVV2'] = array(
-    '#type' => 'textfield',
-    '#size' => 40,
-    '#title' => t('CVV2'),
-    '#required' => TRUE,
-    '#maxlength' => 4,
-    '#size' => 4,
-  );
-//  $form['paiement_mode '] = array(
-//    '#type' => 'checkboxes',
-//    '#title' => t('choisir le nombre de paiement'),
-//    '#options' => array(
-//      'request' => t('payer une seule fois'),
-//      'response' => t('payer en n fois'),
-//    ),
-//   // '#default_value' => $settings['une seul fois'],
-//  );
-  $form['valider'] = array(
-    '#type' => 'submit',
-    '#value' => t('Poursuivre le paiement'),
-    '#submit' => array('commercegimuemoa_trans_validate', 'commercegimuemoa_trans_submit'),
-  );
-
-
-  return $form;
-}
 
 //les differentes carte GIM
 function commercegimuemoa_payment_methods() {
@@ -423,12 +363,6 @@ function commercegimuemoa_icons($methods = array()) {
 
 //le formulaire de paiement
 
-
-
-
-function commercegimuemoa_redirect_form_submit($form, &$form_state, $order, $payment_method) {
-  
-}
 
 function commercegimuemoa_trans_validate($form, &$form_state) {
   if (!empty($number_cart) && is_numeric($number_cart) && !empty($expiration_date) && !empty($first_lastname) && !empty($CVV2)) {
